@@ -20,7 +20,7 @@ tools > dict[contract.Tool, nanoagent.plugin.v0001.ToolConfig]:
   view_pictures:
     description: Read a 6 by 6 picture and its edited target, name the colors they use, save them as pictures.json, and state the question
   try_edits:
-    description: Apply a list of rotate, flip and recolor edits to the picture and say how far the result is from the target
+    description: Apply up to 8 lists of rotate, flip and recolor edits to the picture at once, and say how far each result is from the target
   find_edits:
     description: Find one shortest list of edits that turns the picture into the target; the task's pinned reference
 
@@ -33,9 +33,9 @@ tasks > dict[contract.Task, nanoagent.plugin.v0001.TaskConfig]:
     reference: find_edits
     instructions: |-
       Call view_pictures once with the task input exactly as given. It returns the picture and the target, each 6 rows of 6 pixels, one color letter per pixel, row 0 at the top.
-      Find edits that turn the picture into the target. They are applied in order, and there are three kinds:
+      Edits are applied in order, and there are three kinds:
       - rotate 90, rotate 180 or rotate 270: turn the whole picture clockwise by that many degrees;
       - flip horizontal (swap left and right) or flip vertical (swap top and bottom);
       - recolor with color changes, such as recolor R>B G>W: every R pixel becomes B and every G pixel becomes W, all at once.
-      Call try_edits with the picture, the target and your edits. It returns the edited picture and whether it matches the target. If it does not, change the edits and try again.
-      Submit the edits that matched, at most 4.
+      Do not work the edits out in your head: try them. Right after view_pictures, call try_edits once with these 8 tries: [], ["rotate 90"], ["rotate 180"], ["rotate 270"], ["flip horizontal"], ["flip vertical"], ["rotate 90", "flip horizontal"], ["rotate 90", "flip vertical"].
+      If a try has matches_target true, submit its edits. Otherwise take a try with colors_line_up true: only its colors are wrong. Compare its result with the target pixel by pixel to read off each color change, add one recolor edit with those changes after its edits, try that, and submit the edits that matched.

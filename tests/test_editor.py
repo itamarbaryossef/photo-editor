@@ -8,7 +8,7 @@ from slimconfig import build_output, plain_output
 
 import verifier.checks
 from contract import PicturesInput, TryInput
-from plugin.editor import VIEW_FILE, edited, find_edits, pictures_problem, try_edits, view_pictures
+from plugin.editor import MOVES, VIEW_FILE, edited, find_edits, pictures_problem, try_edits, view_pictures
 
 INPUTS = Path(__file__).parent / "evals" / "inputs"
 # Every eval input's shortest edits, worked out by hand: its file name says which case it is.
@@ -75,12 +75,35 @@ def test_the_view_is_the_pictures_and_their_colors(tmp_path: Path) -> None:
     assert saved == {key: value for key, value in plain_output(viewed).items() if key != "path"}
 
 
+def _try(name: str, tries: list[list[str]], tmp_path: Path):
+    return try_edits(build_output({**plain_output(_pictures(name)), "tries": tries}, TryInput), tmp_path).tries
+
+
 def test_trying_edits_counts_the_pixels_off(tmp_path: Path) -> None:
-    pictures = plain_output(_pictures("01-rotate-90"))
-    right = try_edits(build_output({**pictures, "edits": ["rotate 90"]}, TryInput), tmp_path)
-    assert (right.matches_target, right.differences) == (True, 0)
-    wrong = try_edits(build_output({**pictures, "edits": ["rotate 270"]}, TryInput), tmp_path)
-    assert wrong.matches_target is False and wrong.differences > 0
+    right, wrong = _try("01-rotate-90", [["rotate 90"], ["rotate 270"]], tmp_path)
+    assert (right.matches_target, right.differences, right.colors_line_up) == (True, 0, True)
+    assert wrong.matches_target is False and wrong.differences > 0 and wrong.colors_line_up is False
+
+
+def test_trying_every_turn_and_flip_lines_up_the_intended_one(tmp_path: Path) -> None:
+    for name, expected in EXPECTED.items():
+        lined_up = [tried.edits for tried in _try(name, MOVES, tmp_path) if tried.colors_line_up]
+        moves = [edit for edit in expected if not edit.startswith("recolor")]
+        # A symmetric picture lines up under two turns or flips; any other picture under one.
+        assert moves in lined_up and len(lined_up) == (2 if name == "11-symmetric-picture" else 1), name
+
+
+def test_a_try_that_cannot_be_read_does_not_spoil_the_others(tmp_path: Path) -> None:
+    bad, good = _try("01-rotate-90", [["rotate 45"], ["rotate 90"]], tmp_path)
+    assert "edit 1 ('rotate 45') is not an edit" in bad.problem
+    assert (bad.result, bad.matches_target, bad.colors_line_up) == ([], False, False)
+    assert good.matches_target is True and good.problem == ""
+
+
+def test_refuses_no_tries_or_more_than_8(tmp_path: Path) -> None:
+    for tries in [[], [["rotate 90"]] * 9]:
+        with pytest.raises(ValueError, match="1 to 8 tries"):
+            _try("01-rotate-90", tries, tmp_path)
 
 
 @pytest.mark.parametrize(

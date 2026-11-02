@@ -29,8 +29,10 @@ class PicturesInput(Output):
 class TryInput(Output):
     picture: Annotated[list[str], "The picture, exactly as view_pictures returned it"]
     target: Annotated[list[str], "The target, exactly as view_pictures returned it"]
-    edits: Annotated[
-        list[str], "The edits to try on the picture, in order, at most 4: rotate 90, flip horizontal, recolor R>B ..."
+    tries: Annotated[
+        list[list[str]],
+        "1 to 8 lists of edits to try on the picture, each in order and at most 4: "
+        "rotate 90, flip horizontal, recolor R>B ...",
     ]
 
 
@@ -44,10 +46,20 @@ class ViewOutput(Output):
 
 
 @dataclass
-class TryOutput(Output):
-    result: Annotated[list[str], "The picture after the edits, row by row"]
+class Tried(Output):
+    edits: Annotated[list[str], "The edits tried, as given"]
+    result: Annotated[list[str], "The picture after the edits, row by row; empty when they cannot be read"]
     matches_target: Annotated[bool, "Whether the result is the target, pixel for pixel"]
     differences: Annotated[int, "How many pixels of the result differ from the target"]
+    colors_line_up: Annotated[
+        bool, "Whether one color change per color would turn the result into the target: only colors are left"
+    ]
+    problem: Annotated[str, "Why the edits cannot be read, or empty"]
+
+
+@dataclass
+class TryOutput(Output):
+    tries: Annotated[list[Tried], "Each list of edits tried, in the order given"]
 
 
 @dataclass

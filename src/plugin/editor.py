@@ -6,7 +6,7 @@ from pathlib import Path
 
 from slimconfig import plain_output
 
-from contract import EditsOutput, PicturesInput, TryInput, TryOutput, ViewOutput
+from contract import EditsOutput, PicturesInput, Tried, TryInput, TryOutput, ViewOutput
 
 QUESTION = "Which edits turn the picture into the target?"
 COLORS = {
@@ -21,6 +21,7 @@ COLORS = {
 }
 SIDE = 6  # rows, and pixels in a row, of every picture
 MOST_EDITS = 4
+MOST_TRIES = 8  # enough for every turn and flip in one call
 ANGLES = {"90": 1, "180": 2, "270": 3}  # degrees -> clockwise quarter turns
 DIRECTIONS = ("horizontal", "vertical")
 # Every rotate and flip adds up to one of these 8; a recolor after it makes any reachable target.
@@ -154,12 +155,23 @@ def view_pictures(given: PicturesInput, workspace: Path) -> ViewOutput:
     return output
 
 
-def try_edits(given: TryInput, workspace: Path) -> TryOutput:
-    """The picture after the edits, and how far it is from the target."""
-    _checked(given)
-    result = edited(given.picture, given.edits)
+def _tried(given: TryInput, edits: list[str]) -> Tried:
+    try:
+        result = edited(given.picture, edits)
+    except ValueError as error:
+        # Edits that cannot be read make nothing, so every pixel counts as off.
+        return Tried(edits, [], False, SIDE * SIDE, False, str(error))
     differences = sum(a != b for a, b in zip("".join(result), "".join(given.target), strict=True))
-    return TryOutput(result=result, matches_target=differences == 0, differences=differences)
+    lined_up = _color_changes(result, given.target) is not None
+    return Tried(edits, result, differences == 0, differences, lined_up, "")
+
+
+def try_edits(given: TryInput, workspace: Path) -> TryOutput:
+    """Each list of edits applied to the picture, and how far its result is from the target."""
+    _checked(given)
+    if not 1 <= len(given.tries) <= MOST_TRIES:
+        raise ValueError(f"there must be 1 to {MOST_TRIES} tries, not {len(given.tries)}")
+    return TryOutput(tries=[_tried(given, edits) for edits in given.tries])
 
 
 def find_edits(given: PicturesInput, workspace: Path) -> EditsOutput:

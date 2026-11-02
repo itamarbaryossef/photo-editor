@@ -35,7 +35,8 @@ def test_approves_the_tools_and_the_reference_edits(tmp_path: Path) -> None:
         pictures = _pictures(path.stem)
         reference = _reference(pictures, tmp_path)
         viewed = build_output(plain_output(view_pictures(pictures, tmp_path)), ViewOutput)
-        tried = TryInput(picture=pictures.picture, target=pictures.target, edits=reference["edits"])
+        tries = [reference["edits"], ["rotate 90"], ["flip sideways"]]
+        tried = TryInput(picture=pictures.picture, target=pictures.target, tries=tries)
         result = build_output(plain_output(try_edits(tried, tmp_path)), TryOutput)
         assert verifier.verify_input("view_pictures", pictures)["valid"] is True
         assert verifier.verify_output("view_pictures", pictures, viewed, str(tmp_path))["valid"] is True
@@ -122,11 +123,28 @@ def test_refuses_a_view_that_differs_from_the_input_or_the_saved_file(tmp_path: 
 
 def test_refuses_a_tried_result_that_is_not_the_edited_picture(tmp_path: Path) -> None:
     pictures = _pictures("08-rotate-and-recolor")
-    tried = TryInput(picture=pictures.picture, target=pictures.target, edits=["rotate 90"])
+    tried = TryInput(picture=pictures.picture, target=pictures.target, tries=[["rotate 270"], ["rotate 90"]])
     honest = plain_output(try_edits(tried, tmp_path))
-    for broken in [{**honest, "result": pictures.target}, {**honest, "matches_target": True, "differences": 0}]:
+    assert verifier.verify_output("try_edits", tried, build_output(honest, TryOutput), str(tmp_path))["valid"]
+    first, second = honest["tries"]
+    for change in [
+        {"result": pictures.target},
+        {"matches_target": True, "differences": 0},
+        {"colors_line_up": True},  # rotate 270 is the wrong turn, so its colors cannot line up
+        {"problem": "rotate 270 is not an edit"},
+    ]:
+        broken = {"tries": [{**first, **change}, second]}
         verdict = verifier.verify_output("try_edits", tried, build_output(broken, TryOutput), str(tmp_path))
-        assert verdict["valid"] is False, broken
+        assert verdict["valid"] is False and "try 1" in verdict["message"], change
+    swapped = build_output({"tries": [second, first]}, TryOutput)
+    assert verifier.verify_output("try_edits", tried, swapped, str(tmp_path))["valid"] is False
+
+
+def test_refuses_no_tries_or_more_than_8(tmp_path: Path) -> None:
+    pictures = _pictures("08-rotate-and-recolor")
+    for tries in [[], [["rotate 90"]] * 9]:
+        tried = TryInput(picture=pictures.picture, target=pictures.target, tries=tries)
+        assert verifier.verify_input("try_edits", tried)["valid"] is False
 
 
 def test_refuses_pictures_without_an_answer() -> None:

@@ -2,8 +2,8 @@
 
 A `nanoagent.plugin/v0001` plugin for visual reasoning by a text-only agent, over several steps: editing
 a picture to match a target. Its input is a small picture and an edited copy of it, the target, and
-the agent must find the edits that turn one into the other. It tries edits with a tool, looks at the
-result, and adjusts until the result matches, then submits its edits. Many lists of edits are right
+the agent must find the edits that turn one into the other. It tries edits with a tool, up to 8
+lists at once, looks at the results, and adjusts until one matches, then submits its edits. Many lists of edits are right
 (a 180° turn is also two flips), so the verifier replays the agent's edits on the picture itself and
 compares the result with the target pixel by pixel, with no model.
 
@@ -32,15 +32,16 @@ Every answer is at most 4 edits. Any target that can be made at all needs at mos
 flip, one recolor).
 
 The input is refused unless both pictures are 6 rows of 6 pixels of those letters, the target is not
-the picture already, and some edits make it. Pictures are kept this small so that DeepSeek V4 Flash's
-reasoning fits inside RUSH Lab's 2048-token output limit.
+the picture already, and some edits make it. Pictures are kept this small, and the instructions tell the agent to try all 8 turns and
+flips in its first `try_edits` call rather than work them out in its head, so that DeepSeek V4
+Flash's reasoning fits inside RUSH Lab's 2048-token output limit.
 
 ## Tools
 
 | Tool | Does | Code |
 |---|---|---|
 | `view_pictures` | Returns the picture, the target and the colors they use, saves them as `pictures.json` in the workspace, and states the question; it solves nothing | `src/plugin/editor.py` |
-| `try_edits` | Applies a list of edits to the picture and returns the result, whether it matches the target, and how many pixels differ | `src/plugin/editor.py` |
+| `try_edits` | Applies 1 to 8 lists of edits to the picture at once and returns, for each, the result, whether it matches the target, how many pixels differ, whether only its colors are left to change (`colors_line_up`), and why its edits cannot be read, if they cannot | `src/plugin/editor.py` |
 | `find_edits` | Finds one shortest list of edits that makes the target; the `match-the-target` task's pinned reference | `src/plugin/editor.py` |
 
 ### Tasks
@@ -58,8 +59,8 @@ The verifier (`verifier/`) edits pictures on its own, apart from `src/plugin/`, 
   down to one of the 8 turns and flips followed by one recolor, so that is 8 checks).
 - `verify_output` of `view_pictures`: the returned view is the `pictures.json` saved in the
   workspace, the question is the task's, and the pictures and colors are the input's.
-- `verify_output` of `try_edits`: the result is the verifier's own replay of the edits, and its count
-  of differing pixels is right.
+- `verify_output` of `try_edits`: the tries are the ones asked for, in order, and each one's result,
+  match, count of differing pixels, `colors_line_up` and problem are the verifier's own replay.
 - `verify_output` of `find_edits`: its edits make the target.
 - `verify_task`: the input and the pinned edits again, then the agent's edits, with their own message
   for each way to be wrong: no edits, more than 4, an edit that cannot be read, or a result that
