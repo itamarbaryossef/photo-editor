@@ -1,0 +1,11 @@
+_ > nanoagent.plugin.v0001.ProductConfig:
+tagline: "Edit the Picture to Match"
+summary: "Photo Editor shows a small picture and an edited copy of it, each 6 by 6 pixels drawn as color letters. The agent tries rotate, flip and recolor edits, checks each result, and submits the edits that turn the picture into the target. The verifier replays the edits itself, so any edits that work pass."
+highlights:
+  - "Several steps, not one guess: the agent tries edits, looks at the result and adjusts"
+  - "Bring your own pictures: the input is the picture and the target, checked before the agent starts"
+  - "Many right answers: a half turn is also two flips, and the order of a turn and a recolor does not matter"
+steps:
+  - "Paste a 6 by 6 picture and its edited target, one color letter per pixel"
+  - "The agent tries edits until its result matches and submits them"
+  - "The verifier replays the edits on the picture and shows its verdict"

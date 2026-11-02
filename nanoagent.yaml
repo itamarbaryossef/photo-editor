@@ -1,0 +1,41 @@
+_ > nanoagent.plugin.v0001.ManifestConfig:
+id: photo-editor
+name: Photo Editor
+version: 0.1.0
+status: ready
+spec: nanoagent.plugin/v0001
+
+runtime > nanoagent.plugin.v0001.RuntimeConfig:
+  type: mcp_stdio
+  command: [uv, run, --frozen, python, -m, plugin]
+
+permissions > nanoagent.plugin.v0001.PermissionsConfig:
+  network > nanoagent.plugin.v0001.NetworkConfig:
+    hosts: []
+  filesystem > nanoagent.plugin.v0001.FilesystemConfig:
+    write: [workspace]
+
+# One entry per contract.Tool; its input and output classes are contract.TOOLS's.
+tools > dict[contract.Tool, nanoagent.plugin.v0001.ToolConfig]:
+  view_pictures:
+    description: Read a 6 by 6 picture and its edited target, name the colors they use, save them as pictures.json, and state the question
+  try_edits:
+    description: Apply a list of rotate, flip and recolor edits to the picture and say how far the result is from the target
+  find_edits:
+    description: Find one shortest list of edits that turns the picture into the target; the task's pinned reference
+
+# One entry per contract.Task; its input class is contract.TASKS's.
+tasks > dict[contract.Task, nanoagent.plugin.v0001.TaskConfig]:
+  match-the-target:
+    description: Find the edits that turn a picture into its edited target
+    runner: agent
+    tools: [view_pictures, try_edits]
+    reference: find_edits
+    instructions: |-
+      Call view_pictures once with the task input exactly as given. It returns the picture and the target, each 6 rows of 6 pixels, one color letter per pixel, row 0 at the top.
+      Find edits that turn the picture into the target. They are applied in order, and there are three kinds:
+      - rotate 90, rotate 180 or rotate 270: turn the whole picture clockwise by that many degrees;
+      - flip horizontal (swap left and right) or flip vertical (swap top and bottom);
+      - recolor with color changes, such as recolor R>B G>W: every R pixel becomes B and every G pixel becomes W, all at once.
+      Call try_edits with the picture, the target and your edits. It returns the edited picture and whether it matches the target. If it does not, change the edits and try again.
+      Submit the edits that matched, at most 4.
